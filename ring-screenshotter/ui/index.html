@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ring Screenshotter — Test Console</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Ring Screenshotter Test Console</h1>
+    <p>Standalone + Temporal integration testing — renders 8 multi-angle GLB screenshots via headless Blender.</p>
+  </div>
+  <div id="healthBadge" style="display:flex;align-items:center;font-size:0.82rem;color:var(--muted)">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthText">Checking...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ========== LEFT COLUMN: Controls ========== -->
+  <div class="left-col">
+
+    <!-- 1. Screenshot Input -->
+    <div class="card">
+      <h2>1) Screenshot Input</h2>
+
+      <label>
+        GLB File Path (local)
+        <input id="glbPath" type="text" placeholder="/path/to/model.glb or http://... or CAS ref" />
+      </label>
+
+      <label style="margin-top:6px">
+        Or Upload GLB File
+        <input type="file" id="glbUpload" accept=".glb,.gltf" />
+      </label>
+      <div id="glbFileInfo" style="font-size:0.75rem;color:var(--muted);margin-top:4px;display:none"></div>
+
+      <div class="grid2" style="margin-top:8px">
+        <label>
+          Resolution (px)
+          <input id="resolution" type="number" min="128" max="4096" step="128" value="1024" />
+        </label>
+        <label>
+          Session ID (optional)
+          <input id="sessionId" type="text" placeholder="s_abc123..." />
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>
+          Execution Mode
+          <select id="execMode">
+            <option value="standalone-sync">Standalone Sync (/run)</option>
+            <option value="standalone-async" selected>Standalone Async (/jobs)</option>
+            <option value="temporal">Via Temporal Pipeline</option>
+          </select>
+        </label>
+        <label>
+          Poll Interval (ms)
+          <input id="pollMs" type="number" min="500" max="10000" value="3000" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="screenshotBtn" class="primary" style="flex:1">Render Screenshots</button>
+        <button id="cancelBtn" class="danger" disabled>Cancel</button>
+      </div>
+
+      <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+      <div class="status-bar" id="statusBar">Ready</div>
+    </div>
+
+    <!-- 2. Temporal Config -->
+    <div class="card" id="temporalCard">
+      <h2>2) Temporal Settings</h2>
+      <div class="grid2">
+        <label>
+          Temporal Base URL
+          <input id="temporalBaseUrl" type="text" value="http://127.0.0.1:8000" />
+        </label>
+        <label>
+          Workflow Name
+          <input id="temporalWorkflow" type="text" value="ring_screenshot_only" />
+        </label>
+      </div>
+      <div class="grid3">
+        <label>
+          Authorization
+          <input id="temporalAuth" type="text" placeholder="Bearer &lt;token&gt;" />
+        </label>
+        <label>
+          X-API-Key
+          <input id="temporalApiKey" type="text" placeholder="Optional" />
+        </label>
+        <label>
+          X-On-Behalf-Of
+          <input id="temporalOnBehalf" type="text" placeholder="user_id" />
+        </label>
+      </div>
+    </div>
+
+    <!-- 3. Service Info -->
+    <div class="card">
+      <h2>3) Service Health</h2>
+      <pre id="healthJson" class="mono" style="max-height:160px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;border:1px solid var(--border)">{}</pre>
+      <div class="row" style="margin-top:8px">
+        <button id="refreshHealthBtn">Refresh Health</button>
+        <button id="schemaBtn">View Tool Schema</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========== RIGHT TOP: Screenshot Gallery ========== -->
+  <div class="card gallery-area">
+    <h2>Screenshot Gallery <span id="galleryCount" style="color:var(--muted);font-size:0.78rem"></span></h2>
+    <div class="screenshot-grid" id="screenshotGrid">
+      <div class="screenshot-placeholder">Render screenshots to see results here.</div>
+    </div>
+  </div>
+
+  <!-- ========== RIGHT BOTTOM: Payload Inspector ========== -->
+  <div class="card payload-area">
+    <div class="payload-tabs">
+      <button class="active" data-tab="request">Request Payload</button>
+      <button data-tab="response">Response Payload</button>
+      <button data-tab="result">Screenshot Result</button>
+      <button data-tab="schema">Input / Output Schema</button>
+    </div>
+    <div class="payload-content">
+      <pre id="payloadPre">{}</pre>
+    </div>
+  </div>
+
+</main>
+
+<!-- Lightbox for full-size viewing -->
+<div class="lightbox" id="lightbox">
+  <img id="lightboxImg" src="" alt="full-size screenshot" />
+  <div class="lb-label" id="lightboxLabel"></div>
+</div>
+
+<script src="/ui/app.js?v=1"></script>
+</body>
+</html>
