@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ring Generator — Test Console</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Ring Generator Test Console</h1>
+    <p>Standalone + Temporal integration testing with live 3D preview &amp; payload inspector.</p>
+  </div>
+  <div id="healthBadge" style="display:flex;align-items:center;font-size:0.82rem;color:var(--muted)">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthText">Checking...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ========== LEFT COLUMN: Controls ========== -->
+  <div class="left-col">
+
+    <!-- 1. Generation Input -->
+    <div class="card">
+      <h2>1) Ring Generation</h2>
+
+      <label>
+        Text Prompt
+        <textarea id="prompt" rows="3" placeholder="A vintage art deco ring with channel-set baguette diamonds..."></textarea>
+      </label>
+
+      <label style="margin-top:6px">
+        Reference Image (optional)
+        <input type="file" id="imageInput" accept="image/*" />
+      </label>
+      <img id="imgPreview" class="img-preview" alt="preview" />
+
+      <div style="margin-top:8px">
+        <span style="font-size:0.8rem;color:var(--muted)">LLM Model</span>
+        <div class="llm-options">
+          <label><input type="radio" name="llm" value="claude" checked /> Claude Opus</label>
+          <label><input type="radio" name="llm" value="claude-sonnet" /> Claude Sonnet</label>
+          <label><input type="radio" name="llm" value="gemini" /> Gemini Pro</label>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <label>
+          Max Retries
+          <input id="maxRetries" type="number" min="1" max="10" value="3" />
+        </label>
+        <label>
+          Budget Cap ($)
+          <input id="maxCost" type="number" min="0.1" max="50" step="0.5" value="5.0" />
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>
+          Execution Mode
+          <select id="execMode">
+            <option value="standalone-sync">Standalone Sync (/run)</option>
+            <option value="standalone-async" selected>Standalone Async (/jobs)</option>
+            <option value="temporal">Via Temporal Pipeline</option>
+          </select>
+        </label>
+        <label>
+          Poll Interval (ms)
+          <input id="pollMs" type="number" min="500" max="10000" value="2000" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="generateBtn" class="primary" style="flex:1">Generate Ring</button>
+        <button id="cancelBtn" class="danger" disabled>Cancel</button>
+      </div>
+
+      <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+      <div class="status-bar" id="statusBar">Ready</div>
+    </div>
+
+    <!-- 2. Temporal Config -->
+    <div class="card" id="temporalCard">
+      <h2>2) Temporal Settings</h2>
+      <div class="grid2">
+        <label>
+          Temporal Base URL
+          <input id="temporalBaseUrl" type="text" value="http://127.0.0.1:8000" />
+        </label>
+        <label>
+          Workflow Name
+          <input id="temporalWorkflow" type="text" value="ring_generate_only" />
+        </label>
+      </div>
+      <div class="grid3">
+        <label>
+          Authorization
+          <input id="temporalAuth" type="text" placeholder="Bearer &lt;token&gt;" />
+        </label>
+        <label>
+          X-API-Key
+          <input id="temporalApiKey" type="text" placeholder="Optional" />
+        </label>
+        <label>
+          X-On-Behalf-Of
+          <input id="temporalOnBehalf" type="text" placeholder="user_id" />
+        </label>
+      </div>
+    </div>
+
+    <!-- 3. Service Info -->
+    <div class="card">
+      <h2>3) Service Health</h2>
+      <pre id="healthJson" class="mono" style="max-height:160px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;border:1px solid var(--border)">{}</pre>
+      <div class="row" style="margin-top:8px">
+        <button id="refreshHealthBtn">Refresh Health</button>
+        <button id="schemaBtn">View Tool Schema</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========== RIGHT TOP: 3D Viewer ========== -->
+  <div class="card viewer-area">
+    <h2>3D Result Viewer</h2>
+    <div id="viewer-canvas" style="flex:1"></div>
+  </div>
+
+  <!-- ========== RIGHT BOTTOM: Payload Inspector ========== -->
+  <div class="card payload-area">
+    <div class="payload-tabs">
+      <button class="active" data-tab="request">Request Payload</button>
+      <button data-tab="response">Response Payload</button>
+      <button data-tab="result">Generation Result</button>
+      <button data-tab="cost">Cost &amp; Retry Log</button>
+    </div>
+    <div class="payload-content">
+      <pre id="payloadPre">{}</pre>
+    </div>
+  </div>
+
+</main>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="/ui/app.js?v=1"></script>
+</body>
+</html>
