@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ring Validator — Test Console</title>
+  <link rel="stylesheet" href="/ui/styles.css" />
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Ring Validator Test Console</h1>
+    <p>Standalone + Temporal integration testing — LLM-based structural geometry validation with optional Blender re-render.</p>
+  </div>
+  <div id="healthBadge" style="display:flex;align-items:center;font-size:0.82rem;color:var(--muted)">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthText">Checking...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ========== LEFT COLUMN: Controls ========== -->
+  <div class="left-col">
+
+    <!-- 1. Validation Input -->
+    <div class="card">
+      <h2>1) Validation Input</h2>
+
+      <label>
+        Screenshots (base64 data URIs — paste JSON array or load from file)
+        <textarea id="screenshots" rows="4" placeholder='["data:image/png;base64,iVBOR...", ...]'></textarea>
+      </label>
+      <div class="row" style="margin-top:4px">
+        <button id="loadScreenshotsBtn" style="font-size:0.75rem">Load from JSON File</button>
+        <input type="file" id="screenshotsFileInput" accept=".json" style="display:none" />
+        <button id="loadFromServiceBtn" style="font-size:0.75rem">Fetch from Screenshotter</button>
+        <span id="screenshotCount" style="font-size:0.72rem;color:var(--muted);margin-left:auto">0 screenshots</span>
+      </div>
+
+      <hr />
+
+      <label>
+        Blender Python Code (the code that generated the ring)
+        <textarea id="code" rows="6" placeholder="import bpy&#10;import bmesh&#10;...&#10;def build():&#10;    ..."></textarea>
+      </label>
+      <div class="row" style="margin-top:4px">
+        <button id="loadCodeBtn" style="font-size:0.75rem">Load from .py File</button>
+        <input type="file" id="codeFileInput" accept=".py,.txt" style="display:none" />
+        <span id="codeLength" style="font-size:0.72rem;color:var(--muted);margin-left:auto">0 chars</span>
+      </div>
+
+      <hr />
+
+      <label>
+        User Prompt (original description)
+        <textarea id="userPrompt" rows="2" placeholder="A vintage art deco ring with channel-set baguette diamonds..."></textarea>
+      </label>
+
+      <div class="grid2" style="margin-top:8px">
+        <label>
+          LLM Model
+          <select id="llmName">
+            <option value="gemini">Gemini Pro</option>
+            <option value="claude">Claude Opus</option>
+            <option value="claude-sonnet">Claude Sonnet</option>
+          </select>
+        </label>
+        <label>
+          Session ID (optional)
+          <input id="sessionId" type="text" placeholder="s_abc123..." />
+        </label>
+      </div>
+
+      <div class="grid2">
+        <label>
+          Execution Mode
+          <select id="execMode">
+            <option value="standalone-sync">Standalone Sync (/run)</option>
+            <option value="standalone-async" selected>Standalone Async (/jobs)</option>
+            <option value="temporal">Via Temporal Pipeline</option>
+          </select>
+        </label>
+        <label>
+          Poll Interval (ms)
+          <input id="pollMs" type="number" min="500" max="10000" value="3000" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="validateBtn" class="primary" style="flex:1">Validate Ring</button>
+        <button id="cancelBtn" class="danger" disabled>Cancel</button>
+      </div>
+
+      <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+      <div class="status-bar" id="statusBar">Ready</div>
+    </div>
+
+    <!-- 2. Fetch from Screenshotter -->
+    <div class="card" id="screenshotterCard">
+      <h2>2) Screenshotter Service</h2>
+      <div class="grid2">
+        <label>
+          Screenshotter URL
+          <input id="screenshotterUrl" type="text" value="http://127.0.0.1:8103" />
+        </label>
+        <label>
+          GLB Path for Screenshots
+          <input id="ssGlbPath" type="text" placeholder="/path/to/model.glb" />
+        </label>
+      </div>
+      <button id="fetchScreenshotsBtn" style="margin-top:6px">Fetch Screenshots from Service</button>
+      <div id="ssStatus" style="font-size:0.72rem;color:var(--muted);margin-top:4px"></div>
+    </div>
+
+    <!-- 3. Temporal Config -->
+    <div class="card" id="temporalCard">
+      <h2>3) Temporal Settings</h2>
+      <div class="grid2">
+        <label>
+          Temporal Base URL
+          <input id="temporalBaseUrl" type="text" value="http://127.0.0.1:8000" />
+        </label>
+        <label>
+          Workflow Name
+          <input id="temporalWorkflow" type="text" value="ring_validate_only" />
+        </label>
+      </div>
+      <div class="grid3">
+        <label>
+          Authorization
+          <input id="temporalAuth" type="text" placeholder="Bearer &lt;token&gt;" />
+        </label>
+        <label>
+          X-API-Key
+          <input id="temporalApiKey" type="text" placeholder="Optional" />
+        </label>
+        <label>
+          X-On-Behalf-Of
+          <input id="temporalOnBehalf" type="text" placeholder="user_id" />
+        </label>
+      </div>
+    </div>
+
+    <!-- 4. Service Info -->
+    <div class="card">
+      <h2>4) Service Health</h2>
+      <pre id="healthJson" class="mono" style="max-height:160px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;border:1px solid var(--border)">{}</pre>
+      <div class="row" style="margin-top:8px">
+        <button id="refreshHealthBtn">Refresh Health</button>
+        <button id="schemaBtn">View Tool Schema</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========== RIGHT TOP: Validation Result ========== -->
+  <div class="card result-area">
+    <h2>Validation Result</h2>
+    <div class="result-panel" id="resultPanel">
+      <div class="result-placeholder">Run validation to see results here.</div>
+    </div>
+  </div>
+
+  <!-- ========== RIGHT BOTTOM: Payload Inspector ========== -->
+  <div class="card payload-area">
+    <div class="payload-tabs">
+      <button class="active" data-tab="request">Request Payload</button>
+      <button data-tab="response">Response Payload</button>
+      <button data-tab="result">Validation Result</button>
+      <button data-tab="schema">Input / Output Schema</button>
+    </div>
+    <div class="payload-content">
+      <pre id="payloadPre">{}</pre>
+    </div>
+  </div>
+
+</main>
+
+<!-- Lightbox for full-size screenshot viewing -->
+<div class="lightbox" id="lightbox">
+  <img id="lightboxImg" src="" alt="full-size screenshot" />
+  <div class="lb-label" id="lightboxLabel"></div>
+</div>
+
+<script src="/ui/app.js?v=1"></script>
+</body>
+</html>
