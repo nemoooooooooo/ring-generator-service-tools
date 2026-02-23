@@ -12,9 +12,11 @@ from vibe-designing-3d/app.py (lines 1513-1610).
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -74,14 +76,34 @@ async def validate_ring(
 
     tokens = TokenUsage(input_tokens=llm_result.tokens_in, output_tokens=llm_result.tokens_out)
 
+    # Load existing session data if available (for state persistence)
+    session_dir = sessions_dir / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_path = session_dir / "session.json"
+    session: dict[str, Any] = {}
+    if session_path.exists():
+        try:
+            session = json.loads(session_path.read_text())
+        except Exception:
+            logger.warning("Could not load session.json for %s", session_id)
+
+    # Store validation result in session (matches original)
+    session["validation"] = {
+        "result": {
+            "is_valid": llm_result.is_valid,
+            "message": llm_result.message,
+            "cost": llm_result.cost,
+            "tokens": {"input": llm_result.tokens_in, "output": llm_result.tokens_out},
+        },
+        "timestamp": datetime.now().isoformat(),
+    }
+
     # Step 2: If invalid and corrected code returned, re-render
     if not llm_result.is_valid and llm_result.corrected_code:
         logger.info("[VALIDATION] Regenerating with corrected code...")
         if progress_callback:
             progress_callback("Regenerating with corrected code...", 70)
 
-        session_dir = sessions_dir / session_id
-        session_dir.mkdir(parents=True, exist_ok=True)
         glb_path = str(session_dir / "model.glb")
 
         blender_result = await run_blender(
@@ -95,6 +117,16 @@ async def validate_ring(
             logger.info("[VALIDATION] Corrected version succeeded!")
             if progress_callback:
                 progress_callback("Corrected version rendered", 95)
+
+            # Update session with corrected code and spatial report (matches original)
+            session["code"] = llm_result.corrected_code
+            session["version"] = session.get("version", 1) + 1
+            session["cost"] = session.get("cost", 0) + llm_result.cost
+            session["spatial_report"] = blender_result.spatial_report
+            try:
+                session_path.write_text(json.dumps(session, indent=2))
+            except Exception:
+                logger.warning("Could not persist session.json for %s", session_id)
 
             return ValidateResult(
                 is_valid=llm_result.is_valid,
@@ -120,7 +152,13 @@ async def validate_ring(
                 llm_used=model_name,
             )
 
-    # Step 3: Valid or no corrected code — return as-is
+    # Step 3: Valid or no corrected code — persist cost and return
+    session["cost"] = session.get("cost", 0) + llm_result.cost
+    try:
+        session_path.write_text(json.dumps(session, indent=2))
+    except Exception:
+        logger.warning("Could not persist session.json for %s", session_id)
+
     if progress_callback:
         progress_callback("Validation complete", 95)
 

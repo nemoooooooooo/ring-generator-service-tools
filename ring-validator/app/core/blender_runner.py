@@ -236,12 +236,8 @@ def run_blender_sync(
         glb_exists = os.path.isfile(glb_output_path)
         glb_size = os.path.getsize(glb_output_path) if glb_exists else 0
 
-        success = (
-            result.returncode == 0
-            and glb_exists
-            and glb_size > 100
-            and any("GLB exported" in l for l in pipeline_lines)
-        )
+        # GLB must be at least 1KB to have real geometry (172 bytes = empty)
+        success = glb_exists and glb_size > 1024
 
         return BlenderResult(
             success=success,
