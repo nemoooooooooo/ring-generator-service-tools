@@ -163,6 +163,7 @@ class ValidateJobManager:
                         request=record.request,
                         master_prompt=self.master_prompt,
                         sessions_dir=self.settings.sessions_dir,
+                        artifact_cache_dir=self.settings.artifact_cache_dir,
                         blender_executable=str(self.settings.blender_executable),
                         blender_timeout=self.settings.blender_timeout_seconds,
                         anthropic_api_key=self.settings.anthropic_api_key,

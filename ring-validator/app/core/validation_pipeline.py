@@ -23,6 +23,7 @@ from typing import Any, Callable
 from ..schemas import TokenUsage, ValidateRequest, ValidateResult
 from .blender_runner import run_blender
 from .llm_validator import resolve_model_name, validate_with_model
+from .screenshot_resolver import resolve_screenshots
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ async def validate_ring(
     request: ValidateRequest,
     master_prompt: str,
     sessions_dir: Path,
+    artifact_cache_dir: Path,
     blender_executable: str,
     blender_timeout: int,
     anthropic_api_key: str,
@@ -43,7 +45,6 @@ async def validate_ring(
 
     Mirrors the original ``api_validate_with_screenshots()`` exactly.
     """
-    screenshots = request.screenshots
     code = request.code
     user_prompt = request.user_prompt
     llm_name = request.llm_name
@@ -53,11 +54,32 @@ async def validate_ring(
 
     logger.info(
         "[VALIDATION] %d screenshots for session %s, model=%s (from llm_name=%s)",
-        len(screenshots), session_id, model_name, llm_name,
+        len(request.screenshots), session_id, model_name, llm_name,
     )
 
     if progress_callback:
-        progress_callback("Sending to LLM for validation...", 10)
+        progress_callback("Resolving screenshot artifacts...", 5)
+
+    # Resolve CAS artifact references back to data:image/png;base64,... strings.
+    # When running through Temporal, normalise_payload converts data URIs into
+    # Azure CAS references. The LLM needs actual image bytes, not pointers.
+    screenshots = await resolve_screenshots(
+        raw_screenshots=request.screenshots,
+        cache_dir=artifact_cache_dir,
+    )
+
+    if not screenshots:
+        logger.warning("[VALIDATION] No screenshots resolved — skipping validation")
+        return ValidateResult(
+            is_valid=True,
+            message="Validation skipped: no screenshots could be resolved",
+            llm_used=model_name,
+        )
+
+    logger.info("[VALIDATION] Resolved %d screenshots to data URIs", len(screenshots))
+
+    if progress_callback:
+        progress_callback("Sending to LLM for validation...", 15)
 
     # Step 1: Validate with LLM
     llm_result = await validate_with_model(

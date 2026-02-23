@@ -22,16 +22,18 @@ class ValidateJobStatus(str, Enum):
 class ValidateRequest(BaseModel):
     """Input for the ring validation pipeline.
 
-    ``screenshots`` accepts two formats:
-      - list of base64 data-URI strings: ["data:image/png;base64,...", ...]
-      - list of ScreenshotImage dicts:   [{"name": "front", "data_uri": "data:..."}, ...]
-    The second format is what ring-screenshotter (tool 2) returns directly.
-    Both are normalised to data-URI strings internally.
+    ``screenshots`` accepts multiple shapes — all are resolved to
+    ``data:<mime>;base64,...`` strings in the pipeline before the LLM call:
+
+      - ``str``: bare data-URI  (standalone / direct calls)
+      - ``dict`` with ``data_uri`` (str): screenshot object from tool 2
+      - ``dict`` with ``data_uri`` (CAS dict): after Temporal normalise_payload
+      - ``dict`` with ``uri``: bare CAS artifact reference
 
     ``code`` is the Blender Python code that generated the ring.
     ``user_prompt`` is the original user description.
     ``llm_name`` selects the LLM for validation (same one that generated the ring).
-    ``glb_path`` is required for re-rendering corrected code (local path or CAS ref).
+    ``glb_path`` is optional (not used by the pipeline; kept for DAG passthrough).
     """
 
     screenshots: list[Any]
@@ -47,23 +49,11 @@ class ValidateRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     @model_validator(mode="after")
-    def _normalise_screenshots(self) -> "ValidateRequest":
+    def _require_inputs(self) -> "ValidateRequest":
         if not self.screenshots:
             raise ValueError("At least one screenshot is required")
         if not self.code:
             raise ValueError("code is required for validation")
-
-        normalised: list[str] = []
-        for item in self.screenshots:
-            if isinstance(item, str):
-                normalised.append(item)
-            elif isinstance(item, dict) and "data_uri" in item:
-                normalised.append(item["data_uri"])
-            else:
-                raise ValueError(
-                    f"Each screenshot must be a data-URI string or a dict with 'data_uri'. Got: {type(item)}"
-                )
-        self.screenshots = normalised
         return self
 
 
