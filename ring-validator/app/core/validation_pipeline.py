@@ -24,6 +24,7 @@ from ..schemas import TokenUsage, ValidateRequest, ValidateResult
 from .blender_runner import run_blender
 from .llm_validator import resolve_model_name, validate_with_model
 from .screenshot_resolver import resolve_screenshots
+from shared.artifact_uploader import upload_file
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +139,17 @@ async def validate_ring(
         if blender_result.success:
             logger.info("[VALIDATION] Corrected version succeeded!")
             if progress_callback:
-                progress_callback("Corrected version rendered", 95)
+                progress_callback("Corrected version rendered", 90)
 
-            # Update session with corrected code and spatial report (matches original)
+            glb_ref: Any = await upload_file(glb_path, mime="model/gltf-binary")
+            if isinstance(glb_ref, dict):
+                logger.info("Corrected GLB uploaded to CAS: %s", glb_ref.get("sha256", "")[:12])
+            else:
+                logger.debug("Azure not configured; corrected glb_path remains local: %s", glb_ref)
+
+            if progress_callback:
+                progress_callback("Corrected version uploaded", 95)
+
             session["code"] = llm_result.corrected_code
             session["version"] = session.get("version", 1) + 1
             session["cost"] = session.get("cost", 0) + llm_result.cost
@@ -157,7 +166,7 @@ async def validate_ring(
                 corrected_code=llm_result.corrected_code,
                 cost=llm_result.cost,
                 tokens=tokens,
-                glb_path=glb_path,
+                glb_path=glb_ref,
                 llm_used=model_name,
             )
         else:

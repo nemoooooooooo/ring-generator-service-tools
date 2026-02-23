@@ -67,7 +67,7 @@ class CostSummary(BaseModel):
 class GenerateResult(BaseModel):
     success: bool = True
     session_id: str = ""
-    glb_path: str = ""
+    glb_path: Any = ""
     code: str = ""
     modules: list[str] = Field(default_factory=list)
     spatial_report: str = ""

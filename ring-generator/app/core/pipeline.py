@@ -27,6 +27,7 @@ from .blender_runner import BlenderResult, run_blender
 from .code_processor import extract_modules
 from .llm_client import LLMResponse, UsageInfo, call_llm
 from .prompt_builder import build_fix_prompt, build_generation_prompt
+from shared.artifact_uploader import upload_file
 
 logger = logging.getLogger(__name__)
 
@@ -300,10 +301,16 @@ async def generate_ring(
         session_id, cost_summary.total_usd,
     )
 
+    glb_ref: Any = await upload_file(glb_path, mime="model/gltf-binary")
+    if isinstance(glb_ref, dict):
+        logger.info("GLB uploaded to CAS: %s", glb_ref.get("sha256", "")[:12])
+    else:
+        logger.debug("Azure not configured; glb_path remains local: %s", glb_ref)
+
     return GenerateResult(
         success=True,
         session_id=session_id,
-        glb_path=glb_path,
+        glb_path=glb_ref,
         code=code,
         modules=modules,
         spatial_report=result.spatial_report,

@@ -73,7 +73,7 @@ class ValidateResult(BaseModel):
     corrected_code: str | None = None
     cost: float = 0.0
     tokens: TokenUsage = Field(default_factory=TokenUsage)
-    glb_path: str | None = None
+    glb_path: Any = None
     llm_used: str = ""
 
 
